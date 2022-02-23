@@ -1,0 +1,20 @@
+# Code locations to ignore for code composer
+src
+Debug
+.xdchelp
+.config
+.launches
+targetConfigs
+
+# Ignore VS code config
+.vscode
+
+# Ignore everything in the gcc build directory
+# except the makefile and linker script
+gcc-build/*
+!gcc-build/makefile
+!gcc-build/MSP_EXP432P401R_TIRTOS.lds
+!gcc-build/README.md
+
+# Ignore Doxygen output
+generated-documentation
