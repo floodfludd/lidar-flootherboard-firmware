@@ -158,7 +158,7 @@ void lidar_init() {
 
 static int read_radar_distance(float *distance) {
 
-    RadarPacket read_packet;
+    int read_packet;
     int read_count;
 
     // Read a data packet from the UART
@@ -176,7 +176,7 @@ static int read_radar_distance(float *distance) {
 
     // Verify that the header matches expected value
 
-    if (read_count == -1) {
+    if (read_packet == -1) {
         return LIDAR_READ_NOPACKET; // Data was read, but no packet.
     }
 
