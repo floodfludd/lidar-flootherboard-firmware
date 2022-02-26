@@ -156,5 +156,41 @@ void lidar_init() {
 
 }
 
+static int read_radar_distance(float *distance) {
 
+    RadarPacket read_packet;
+    int read_count;
+
+    // Read a data packet from the UART
+
+    //read_count = UART_read(sensor_uart, &read_packet, sizeof(RadarPacket));
+    garminTransaction.slaveAddress = garmin_ADDRESS;      // Where we send to
+    garminTransaction.writeBuf = 0x80;                // What we send
+    garminTransaction.writeCount = 1;                      // How many bytes to send
+    garminTransaction.readBuf = &read_packet;                  // Where to store data
+    garminTransaction.readCount = readCount;
+
+    if (read_count <= 0) {
+        return LIDAR_READ_NODATA; // Timed out waiting for data
+    }
+
+    // Verify that the header matches expected value
+
+    if (read_count != sizeof(LidarPacket) ||
+        read_packet.header != LIDAR_PACKET_HEADER) {
+        return LIDAR_READ_NOPACKET; // Data was read, but no packet.
+    }
+
+    // Now, we need to parse the packet and add a timestamp.
+    // Reject packets below a threshold
+
+    if (read_packet.distance < LIDAR_THRESHOLD ||
+        read_packet.distance > LIDAR_UPPER_THRESHOLD) {
+        return LIDAR_READ_NOPACKET;
+    }
+
+    *distance = read_packet.distance;
+    return LIDAR_SUCCESS;
+
+}
 
