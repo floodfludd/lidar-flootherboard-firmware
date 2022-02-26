@@ -69,24 +69,24 @@ void lidar_init();
  * @param arg0: Unused
  * @param arg1: Unused
  */
-void lidar_run(UArg arg0, UArg arg1);
+//void lidar_run(UArg arg0, UArg arg1);
 
 /**
  * Asynchronously runs sampling code for lidar, getting one sample
  * and transmitting it
  */
-void sample_lidar();
+//void sample_lidar();
 
 /**
  * Forces the lidar to calibrate.
  */
-void force_calibration();
+//void force_calibration();
 
 /**
  * Enables (or disables) lidar sample logging
  * @param enabled: should samples be logged to the CLI
  */
-void configure_sample_logging(bool enabled);
+//void configure_sample_logging(bool enabled);
 
 
 

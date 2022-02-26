@@ -64,6 +64,7 @@
 #include "radar.h"
 #include "storage.h"
 #include "transmission.h"
+#include "lidar.h"
 
 // Delay to wait before updating the clock using network time (roughly in ms)
 #define NETWORK_TIME_DELAY 259200000LL
@@ -76,14 +77,18 @@
 ProgramConfiguration program_config = {
     "HW_ID",       // Device hardware ID
     1,             // Device synthetic ID
+    true,           // Lidar module enabled?
     false,          // Radar module enabled?
     false,          // Camera module enabled?
-    true,         // network module enabled?
+    false,         // network module enabled?
     "3.21.41.182", // remote server for network module to talk to
     "f94ed0427c1d5d54b4308fe8c1aa7e03703d4bbd", // Auth token for server
     15000,                                      // radar sample interval in ms
-    55, // number of lidar samples to take every time the interval fires
-    0.0 // Distance to offset radar samples by (subtracts)
+    55, // number of radar samples to take every time the interval fires
+    0.0, // Distance to offset radar samples by (subtracts)
+    15000,                                      // lidar sample interval in ms
+    55,                                         // number of lidar samples to take every time the interval fires
+    0.0                                         // Distance to offset lidar samples by (subtracts)
 };
 // Watchdog handle implemenation, used across code for watchdog timer
 Watchdog_Handle watchdogHandle;
@@ -173,8 +178,10 @@ static void main_task(UArg arg0, UArg arg1) {
     /* Call task init functions */
     cli_init();
     storage_init();
-    //lidar_init(); Maybe add a GPIO_setConfig for lidar?
+
     // Read configuration file
+    /** FIX ME **/
+    // Maybe need to check what this does
     read_configuration();
 
     /*
@@ -186,6 +193,13 @@ static void main_task(UArg arg0, UArg arg1) {
                        GPIO_CFG_OUTPUT | GPIO_CFG_OUT_LOW);
     }
     */
+    if (program_config.lidar_module_enabled) {
+        lidar_init();
+    } else {
+        //Maybe add a GPIO_setConfig for lidar?
+        // If that is even possible
+    }
+
     if (program_config.network_enabled) {
         transmission_init();
     } else {
@@ -198,11 +212,11 @@ static void main_task(UArg arg0, UArg arg1) {
      */
     // Eventually need one for lidar
     /*
-    if (program_config.radar_module_enabled) {
+    if (program_config.lidar_module_enabled) {
         Task_Params_init(&taskParams);
-        taskParams.stackSize = RADAR_TASK_STACK_MEM;
-        taskParams.priority = RADAR_TASK_PRIORITY;
-        if (Task_create(radar_run, &taskParams, NULL) == NULL) {
+        taskParams.stackSize = LIDAR_TASK_STACK_MEM;
+        taskParams.priority = LIDAR_TASK_PRIORITY;
+        if (Task_create(lidar_run, &taskParams, NULL) == NULL) {
             System_abort("Sensor task creation failed\n");
         }
     }
@@ -227,6 +241,8 @@ static void main_task(UArg arg0, UArg arg1) {
     if (Task_create(cli_run, &taskParams, NULL) == NULL) {
         System_abort("CLI task creation failed\n");
     }
+
+
     System_printf("Flood of ELECs Firmware Starting, Build time %s %s\n",
                   __DATE__, __TIME__);
     // Force all data in the Sysmin buffer to print
@@ -255,13 +271,14 @@ static void main_task(UArg arg0, UArg arg1) {
     if (!clock) {
         System_abort("Could not create main task clock\n");
     }
+    /*
     while (1) {
-        /*
+
          * Main program run loop. Sample data from the radar board, and
          * periodically update the clock.
-         */
+
         // Get a sample from the radar board.
-        /** FIX ME **/
+         *
         // sample_lidar();
         sample_radar();
         // Delay until radar sample interval expires.
@@ -274,6 +291,10 @@ static void main_task(UArg arg0, UArg arg1) {
         }
         // Force log files to flush to disk
         sync_to_disk();
+    }
+    */
+    for(;;) {
+
     }
 }
 

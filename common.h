@@ -35,6 +35,7 @@ typedef struct {
 typedef struct {
     char hardware_id[HARDWARE_ID_LEN]; /**< device hardware ID */
     int synthetic_id;                  /**< device synthetic ID */
+    bool lidar_module_enabled;
     bool radar_module_enabled;         /**< should radar samples be taken */
     bool camera_module_enabled;        /**< should camera be booted */
     bool network_enabled;              /**< should network device be booted */
@@ -43,6 +44,10 @@ typedef struct {
     int radar_sample_interval;         /**< given in ms */
     int radar_sample_count;            /**< number of samples to take */
     float radar_sample_offset;         /**< float offset to all radar samples */
+
+    int lidar_sample_interval;
+    int lidar_sample_count;
+    float lidar_sample_offset;
 } ProgramConfiguration;
 
 /** Global program configuration structure, implemented in main.c */
