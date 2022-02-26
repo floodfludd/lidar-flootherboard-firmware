@@ -12,6 +12,8 @@
 #ifndef LIDAR_H_
 #define LIDAR_H_
 
+#define garmin_ADDRESS 0x62
+
 #include <xdc/std.h>
 
 /**

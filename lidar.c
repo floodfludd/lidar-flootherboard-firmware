@@ -17,9 +17,12 @@
  *  Author: Samuel Ramirez, danieldegrasse
  */
 
+#include "lidar.h"
+
 /* XDC Module Headers */
 #include <xdc/runtime/System.h>
 #include <xdc/std.h>
+
 
 /* BIOS Module headers */
 #include <ti/sysbios/BIOS.h>
@@ -158,7 +161,7 @@ void lidar_init() {
 
 static int read_radar_distance(float *distance) {
 
-    RadarPacket read_packet;
+    int read_packet;
     int read_count;
 
     // Read a data packet from the UART
@@ -168,7 +171,7 @@ static int read_radar_distance(float *distance) {
     garminTransaction.writeBuf = 0x80;                // What we send
     garminTransaction.writeCount = 1;                      // How many bytes to send
     garminTransaction.readBuf = &read_packet;                  // Where to store data
-    garminTransaction.readCount = readCount;
+    garminTransaction.readCount = read_count;
 
     if (read_count <= 0) {
         return LIDAR_READ_NODATA; // Timed out waiting for data
@@ -176,20 +179,19 @@ static int read_radar_distance(float *distance) {
 
     // Verify that the header matches expected value
 
-    if (read_count != sizeof(LidarPacket) ||
-        read_packet.header != LIDAR_PACKET_HEADER) {
+    if (read_count == -1) {
         return LIDAR_READ_NOPACKET; // Data was read, but no packet.
     }
 
     // Now, we need to parse the packet and add a timestamp.
     // Reject packets below a threshold
 
-    if (read_packet.distance < LIDAR_THRESHOLD ||
-        read_packet.distance > LIDAR_UPPER_THRESHOLD) {
+    if (read_packet < LIDAR_THRESHOLD ||
+        read_packet > LIDAR_UPPER_THRESHOLD) {
         return LIDAR_READ_NOPACKET;
     }
 
-    *distance = read_packet.distance;
+    *distance = read_packet;
     return LIDAR_SUCCESS;
 
 }
@@ -200,25 +202,25 @@ void turn_on (accuracy) {
 	garminTransaction.slaveAddress = garmin_ADDRESS;
 	garminTransaction.writeBuf = writeData;
 	garminTransaction.writeCount = 1;
-	I2C_transfer(garminHandle, &garminTransaction);
+	I2C_transfer(lidarEventHandle, &garminTransaction);
 
-	uint8_t writeData[1] = {0xFF};
+	uint8_t writeData1[1] = {0xFF};
 	garminTransaction.slaveAddress = garmin_ADDRESS;
-	garminTransaction.writeBuf = writeData;
+	garminTransaction.writeBuf = writeData1;
 	garminTransaction.writeCount = 1;
-	I2C_transfer(garminHandle, &garminTransaction);
+	I2C_transfer(lidarEventHandle, &garminTransaction);
 
-	uint8_t writeData[1] = {HIGH_ACCURACY_MODE};
+	uint8_t writeData2[1] = {HIGH_ACCURACY_MODE};
 	garminTransaction.slaveAddress = garmin_ADDRESS;
-	garminTransaction.writeBuf = writeData;
+	garminTransaction.writeBuf = writeData2;
 	garminTransaction.writeCount = 1;
-	I2C_transfer(garminHandle, &garminTransaction);
+	I2C_transfer(lidarEventHandle, &garminTransaction);
 
-	uint8_t writeData[1] = {accuracy};
+	uint8_t writeData3[1] = {accuracy};
 	garminTransaction.slaveAddress = garmin_ADDRESS;
-	garminTransaction.writeBuf = writeData;
+	garminTransaction.writeBuf = writeData3;
 	garminTransaction.writeCount = 1;
-	I2C_transfer(garminHandle, &garminTransaction);
+	I2C_transfer(lidarEventHandle, &garminTransaction);
 }
 
 void turn_off () {
@@ -227,23 +229,23 @@ void turn_off () {
 	garminTransaction.slaveAddress = garmin_ADDRESS;
 	garminTransaction.writeBuf = writeData;
 	garminTransaction.writeCount = 1;
-	I2C_transfer(garminHandle, &garminTransaction);
+	I2C_transfer(lidarEventHandle, &garminTransaction);
 
-	uint8_t writeData[1] = {0x00};
+	uint8_t writeData4[1] = {0x00};
 	garminTransaction.slaveAddress = garmin_ADDRESS;
-	garminTransaction.writeBuf = writeData;
+	garminTransaction.writeBuf = writeData4;
 	garminTransaction.writeCount = 1;
-	I2C_transfer(garminHandle, &garminTransaction);
+	I2C_transfer(lidarEventHandle, &garminTransaction);
 
-	uint8_t writeData[1] = {POWER_MODE};
+	uint8_t writeData5[1] = {POWER_MODE};
 	garminTransaction.slaveAddress = garmin_ADDRESS;
-	garminTransaction.writeBuf = writeData;
+	garminTransaction.writeBuf = writeData5;
 	garminTransaction.writeCount = 1;
-	I2C_transfer(garminHandle, &garminTransaction);
+	I2C_transfer(lidarEventHandle, &garminTransaction);
 
-	uint8_t writeData[1] = {0x00};
+	uint8_t writeData6[1] = {0x00};
 	garminTransaction.slaveAddress = garmin_ADDRESS;
-	garminTransaction.writeBuf = writeData;
+	garminTransaction.writeBuf = writeData6;
 	garminTransaction.writeCount = 1;
-	I2C_transfer(garminHandle, &garminTransaction);
+	I2C_transfer(lidarEventHandle, &garminTransaction);
 }
