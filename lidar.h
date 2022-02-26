@@ -19,7 +19,7 @@
  */
 #define LIDAR_TASK_STACK_MEM 2048 /**< size of the task stack */
 #define LIDAR_TASK_PRIORITY 1     /**< priority of task */
-
+#define garmin_ADDRESS 0x62
 
 /**
  * Enum to store Lidar's registers
