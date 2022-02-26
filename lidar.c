@@ -194,3 +194,56 @@ static int read_radar_distance(float *distance) {
 
 }
 
+void turn_on (accuracy) {
+	// turns on always on mode and turns on high accuracy mode
+	uint8_t writeData[1] = {POWER_MODE};
+	garminTransaction.slaveAddress = garmin_ADDRESS;
+	garminTransaction.writeBuf = writeData;
+	garminTransaction.writeCount = 1;
+	I2C_transfer(garminHandle, &garminTransaction);
+
+	uint8_t writeData[1] = {0xFF};
+	garminTransaction.slaveAddress = garmin_ADDRESS;
+	garminTransaction.writeBuf = writeData;
+	garminTransaction.writeCount = 1;
+	I2C_transfer(garminHandle, &garminTransaction);
+
+	uint8_t writeData[1] = {HIGH_ACCURACY_MODE};
+	garminTransaction.slaveAddress = garmin_ADDRESS;
+	garminTransaction.writeBuf = writeData;
+	garminTransaction.writeCount = 1;
+	I2C_transfer(garminHandle, &garminTransaction);
+
+	uint8_t writeData[1] = {accuracy};
+	garminTransaction.slaveAddress = garmin_ADDRESS;
+	garminTransaction.writeBuf = writeData;
+	garminTransaction.writeCount = 1;
+	I2C_transfer(garminHandle, &garminTransaction);
+}
+
+void turn_off () {
+	// turn off high accuracy mode and turns on asynchronous mode
+	uint8_t writeData[1] = {HIGH_ACCURACY_MODE};
+	garminTransaction.slaveAddress = garmin_ADDRESS;
+	garminTransaction.writeBuf = writeData;
+	garminTransaction.writeCount = 1;
+	I2C_transfer(garminHandle, &garminTransaction);
+
+	uint8_t writeData[1] = {0x00};
+	garminTransaction.slaveAddress = garmin_ADDRESS;
+	garminTransaction.writeBuf = writeData;
+	garminTransaction.writeCount = 1;
+	I2C_transfer(garminHandle, &garminTransaction);
+
+	uint8_t writeData[1] = {POWER_MODE};
+	garminTransaction.slaveAddress = garmin_ADDRESS;
+	garminTransaction.writeBuf = writeData;
+	garminTransaction.writeCount = 1;
+	I2C_transfer(garminHandle, &garminTransaction);
+
+	uint8_t writeData[1] = {0x00};
+	garminTransaction.slaveAddress = garmin_ADDRESS;
+	garminTransaction.writeBuf = writeData;
+	garminTransaction.writeCount = 1;
+	I2C_transfer(garminHandle, &garminTransaction);
+}
