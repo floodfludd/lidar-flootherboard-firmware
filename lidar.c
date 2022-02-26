@@ -176,20 +176,19 @@ static int read_radar_distance(float *distance) {
 
     // Verify that the header matches expected value
 
-    if (read_count != sizeof(LidarPacket) ||
-        read_packet.header != LIDAR_PACKET_HEADER) {
+    if (read_count == -1) {
         return LIDAR_READ_NOPACKET; // Data was read, but no packet.
     }
 
     // Now, we need to parse the packet and add a timestamp.
     // Reject packets below a threshold
 
-    if (read_packet.distance < LIDAR_THRESHOLD ||
-        read_packet.distance > LIDAR_UPPER_THRESHOLD) {
+    if (read_packet < LIDAR_THRESHOLD ||
+        read_packet > LIDAR_UPPER_THRESHOLD) {
         return LIDAR_READ_NOPACKET;
     }
 
-    *distance = read_packet.distance;
+    *distance = read_packet;
     return LIDAR_SUCCESS;
 
 }
