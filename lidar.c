@@ -1,11 +1,3 @@
-/*
- * lidar.c
- *
- *  Created on: Feb 22, 2022
- *      Author: chrom
- */
-
-
 /**
  *  @file lidar.c
  *  Implements communication with attached lidar sensor to read water level
@@ -43,6 +35,7 @@
 #include "common.h"
 #include "storage.h"
 #include "transmission.h"
+#include "lidar.h"
 
 /** Constant values board should reply with */
 #define LIDAR_CMD_DONE "Done"     /**< the board successfully ran a command */
@@ -101,6 +94,10 @@ static bool button_press_bypassed = false;
 static bool log_lidar_samples = false;
 
 /* Static functions */
+
+static int read_lidar_distance(float *distance);
+static int turn_on(uint8_t accuracy);
+static int turn_off(void);
 /*
 static int configure_lidar();
 static int wait_data(const char *expected, int len);
@@ -111,6 +108,7 @@ static int wait_boot();
 static int wait_packet();
 static void end_calibration_wait(uint8_t index);
 */
+
 /**
  * This function should perform any initialization the lidar sensor model needs
  * This includes setting up peripherals (like I2C).
@@ -156,93 +154,202 @@ void lidar_init() {
 
 }
 
-static int read_radar_distance(float *distance) {
+void lidar_run(UArg arg0, UArg arg1) {
+    int num_samples;
+    UInt events;
+    float num_samples_avg;
+    float sum;
+    SensorDataPacket packet;
+    System_printf("sensor task starting\n");
+    Watchdog_clear(watchdogHandle);
+    cli_log("Lidar task starting with distance offset of %.2f\n",
+            program_config.lidar_sample_offset);
+    /*
+     * Run Loop.
+     * 1. Wait for a sample to be requested
+     * 2. Boot the radar board
+     * 3. Configure the board
+     * 4. Take a defined number of samples
+     * 5. Power down the board
+     */
+    while (1) {
+        if (program_config.lidar_sample_offset == 0.0) {
+            // Where calibration code would go
+            // Don't want to include it yet so as to make things simpler
+        } else {
+            events = Event_pend(lidarEventHandle, Event_Id_NONE,
+                                EVT_LIDAR_SAMPLE, BIOS_WAIT_FOREVER);
+        }
+        // Only run if one of the events that were called was EVT_LIDAR_SAMPLE from sample_lidar in main
+        if (events & EVT_LIDAR_SAMPLE) {
+            // For now, let's assume lidar is always on
+            // boot_lidar would usually be something like switching from ALWAYS_ON for high accuracy mode to ASYNCHRONOUS_MODE to preserve power
+            //boot_lidar();
 
-    int read_packet;
-    int read_count;
+            /*
+             // We don't need to wait for lidar to boot, since it is always on
+            if (wait_boot() < 0) {
+                System_printf("lidar did not boot\n");
+                System_flush();
+                Watchdog_clear(watchdogHandle);
+                cli_log("Timed out waiting for radar boot\n");
+                powerdown_lidar();
+                continue; // Do not run rest of loop
+            }
+             // Don't need to configure lidar, assuming it is ALWAYS_ON
+            if (configure_radar() < 0) {
+                System_printf("Failed to configure radar module\n");
+                System_flush();
+                cli_log("Failed to configure radar module\n");
+                powerdown_radar();
+                continue; // Do not run rest of loop
+            }
 
-    // Read a data packet from the UART
+            // Wait for lidar board to produce data.
+            // We also don't need since it waits for a magic number header to be produced before actually reading
+            if (wait_packet() < 0) {
+                System_printf("Did not get data from radar board\n");
+                Watchdog_clear(watchdogHandle);
+                System_flush();
+                cli_log("Radar board is not producing data\n");
+                powerdown_radar();
+                continue; // Do not run rest of loop
+            }
+            */
+            struct timespec ts;
+            float distance;
+            num_samples = program_config.lidar_sample_count;
+            num_samples_avg = 0;
+            sum = 0;
+            while (num_samples--) {
+                Task_sleep(LIDAR_SAMPLE_DELAY);
+                num_samples_avg = num_samples_avg + 1.0;
+                if (read_lidar_distance(&distance) != LIDAR_SUCCESS) {
+                    Watchdog_clear(watchdogHandle);
+                    System_printf("Failed to get sample from lidar board\n");
+                    System_flush();
+                    cli_log("Did not get sample from lidar board\n");
+                    break; // Exit loop
+                }
+                sum = sum + distance;
+            }
+            if (sum != 0 && num_samples_avg > LIDAR_MIN_SAMPLES) {
+                if (program_config.lidar_sample_offset == 0.0) {
+                    // This would also be used for calibrating the lidar sample offset
+                    // Not gonna worry about this for now
+                } else {
+                    // Send and store radar data
+                    packet.distance = sum / num_samples_avg;
 
-    //read_count = UART_read(sensor_uart, &read_packet, sizeof(RadarPacket));
+                    // We won't be using this for now, since it appears to get the delta of change of water
+                    // subtract distance from offset
+                    //packet.distance = program_config.lidar_sample_offset - packet.distance;
+                    // If a negative value was read, just zero it out (currently
+                    // disabled) if (packet.distance < 0) packet.distance = 0;
+                    clock_gettime(CLOCK_REALTIME, &ts);
+                    packet.timestamp = ts.tv_sec;
+                    if (log_lidar_samples) {
+                        cli_log("%.03f\n", packet.distance);
+                    }
+                    store_sensor_data(&packet);
+                    transmit_sensor_data(&packet);
+                }
+            }
+            // Assume lidar is always on for now
+            //powerdown_lidar();
+        }
+    }
+}
+
+void sample_lidar(void) {
+    if (!program_config.lidar_module_enabled) {
+        return;
+    }
+    Event_post(lidarEventHandle, EVT_LIDAR_SAMPLE);
+}
+
+static int read_lidar_distance(float *distance) {
+
+    uint8_t writeData[2] = {ACQ_COMMANDS, 0x04};
+    uint8_t readData[2];
+
     garminTransaction.slaveAddress = garmin_ADDRESS;      // Where we send to
-    garminTransaction.writeBuf = 0x80;                // What we send
+    garminTransaction.writeBuf = writeData;                // What we send
+    garminTransaction.writeCount = 2;                      // How many bytes to send
+    if (!I2C_transfer(garmin_i2c, &garminTransaction)) {
+        return LIDAR_READ_NODATA;
+    }
+
+    do {
+        writeData[0] = STATUS;
+        garminTransaction.slaveAddress = garmin_ADDRESS;      // Where we send to
+        garminTransaction.writeBuf = writeData;                // What we send
+        garminTransaction.writeCount = 1;                      // How many bytes to send
+        garminTransaction.readBuf = readData;                  // Where to store data
+        garminTransaction.readCount = 1;                       // How many bytes to read
+        if (!I2C_transfer(garmin_i2c, &garminTransaction)) {
+            return LIDAR_READ_NODATA;
+        }
+    } while(readData[0] & 0x1 == 1);
+
+    writeData[0] = 0x10;
+    garminTransaction.slaveAddress = garmin_ADDRESS;      // Where we send to
+    garminTransaction.writeBuf = writeData;                // What we send
     garminTransaction.writeCount = 1;                      // How many bytes to send
-    garminTransaction.readBuf = &read_packet;                  // Where to store data
-    garminTransaction.readCount = readCount;
-
-    if (read_count <= 0) {
-        return LIDAR_READ_NODATA; // Timed out waiting for data
+    garminTransaction.readBuf = readData;                  // Where to store data
+    garminTransaction.readCount = 2;                       // How many bytes to read
+    if (!I2C_transfer(garmin_i2c, &garminTransaction)) {
+        return LIDAR_READ_NODATA;
     }
 
-    // Verify that the header matches expected value
+    *distance = (readData[1] << 8) | readData[0];
 
-    if (read_packet == -1) {
-        return LIDAR_READ_NOPACKET; // Data was read, but no packet.
+    if (*distance < LIDAR_THRESHOLD ||
+        *distance > LIDAR_UPPER_THRESHOLD) {
+            return LIDAR_READ_NOPACKET;
     }
 
-    // Now, we need to parse the packet and add a timestamp.
-    // Reject packets below a threshold
-
-    if (read_packet < LIDAR_THRESHOLD ||
-        read_packet > LIDAR_UPPER_THRESHOLD) {
-        return LIDAR_READ_NOPACKET;
-    }
-
-    *distance = read_packet;
     return LIDAR_SUCCESS;
-
 }
 
-void turn_on (accuracy) {
+static int turn_on (uint8_t accuracy) {
 	// turns on always on mode and turns on high accuracy mode
-	uint8_t writeData[1] = {POWER_MODE};
+	uint8_t writeData0[2] = {POWER_MODE, 0xFF};
 	garminTransaction.slaveAddress = garmin_ADDRESS;
-	garminTransaction.writeBuf = writeData;
-	garminTransaction.writeCount = 1;
-	I2C_transfer(garminHandle, &garminTransaction);
+	garminTransaction.writeBuf = writeData0;
+	garminTransaction.writeCount = 2;
+    if (!I2C_transfer(garmin_i2c, &garminTransaction)) {
+        return LIDAR_READ_NODATA;
+    }
 
-	uint8_t writeData[1] = {0xFF};
+	uint8_t writeData1[2] = {HIGH_ACCURACY_MODE, accuracy};
 	garminTransaction.slaveAddress = garmin_ADDRESS;
-	garminTransaction.writeBuf = writeData;
-	garminTransaction.writeCount = 1;
-	I2C_transfer(garminHandle, &garminTransaction);
+	garminTransaction.writeBuf = writeData1;
+	garminTransaction.writeCount = 2;
+	if (!I2C_transfer(garmin_i2c, &garminTransaction)) {
+	    return LIDAR_READ_NODATA;
+	}
 
-	uint8_t writeData[1] = {HIGH_ACCURACY_MODE};
-	garminTransaction.slaveAddress = garmin_ADDRESS;
-	garminTransaction.writeBuf = writeData;
-	garminTransaction.writeCount = 1;
-	I2C_transfer(garminHandle, &garminTransaction);
-
-	uint8_t writeData[1] = {accuracy};
-	garminTransaction.slaveAddress = garmin_ADDRESS;
-	garminTransaction.writeBuf = writeData;
-	garminTransaction.writeCount = 1;
-	I2C_transfer(garminHandle, &garminTransaction);
+	return LIDAR_SUCCESS;
 }
 
-void turn_off () {
+static int turn_off (void) {
 	// turn off high accuracy mode and turns on asynchronous mode
-	uint8_t writeData[1] = {HIGH_ACCURACY_MODE};
+	uint8_t writeData0[2] = {HIGH_ACCURACY_MODE, 0x00};
 	garminTransaction.slaveAddress = garmin_ADDRESS;
-	garminTransaction.writeBuf = writeData;
-	garminTransaction.writeCount = 1;
-	I2C_transfer(garminHandle, &garminTransaction);
+	garminTransaction.writeBuf = writeData0;
+	garminTransaction.writeCount = 2;
+	if (!I2C_transfer(garmin_i2c, &garminTransaction)) {
+	    return LIDAR_READ_NODATA;
+	}
 
-	uint8_t writeData[1] = {0x00};
+	uint8_t writeData1[2] = {POWER_MODE, 0x00};
 	garminTransaction.slaveAddress = garmin_ADDRESS;
-	garminTransaction.writeBuf = writeData;
-	garminTransaction.writeCount = 1;
-	I2C_transfer(garminHandle, &garminTransaction);
+	garminTransaction.writeBuf = writeData1;
+	garminTransaction.writeCount = 2;
+	if (!I2C_transfer(garmin_i2c, &garminTransaction)) {
+	    return LIDAR_READ_NODATA;
+	}
 
-	uint8_t writeData[1] = {POWER_MODE};
-	garminTransaction.slaveAddress = garmin_ADDRESS;
-	garminTransaction.writeBuf = writeData;
-	garminTransaction.writeCount = 1;
-	I2C_transfer(garminHandle, &garminTransaction);
-
-	uint8_t writeData[1] = {0x00};
-	garminTransaction.slaveAddress = garmin_ADDRESS;
-	garminTransaction.writeBuf = writeData;
-	garminTransaction.writeCount = 1;
-	I2C_transfer(garminHandle, &garminTransaction);
+	return LIDAR_SUCCESS;
 }
