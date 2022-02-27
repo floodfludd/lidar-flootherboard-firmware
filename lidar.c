@@ -58,7 +58,7 @@
  * minimum number of samples to be averaged for a TX to go through, should
  * radar fail to return a sample
  */
-#define LIDAR_MIN_SAMPLES 30
+#define LIDAR_MIN_SAMPLES 1
 #define LIDAR_READ_NODATA -2   /**< Radar did not return any data */
 #define LIDAR_READ_NOPACKET -1 /**< Radar did not return a valid packet */
 #define LIDAR_SUCCESS 0        /**< Radar returned data */
@@ -91,7 +91,7 @@ static I2C_Transaction garminTransaction = {0};
 // Should the wait for GPIO0 to be pressed during calibration be bypassed
 static bool button_press_bypassed = false;
 // Should each lidar sample be logged to the CLI
-static bool log_lidar_samples = false;
+static bool log_lidar_samples = true;
 
 /* Static functions */
 
@@ -249,7 +249,9 @@ void lidar_run(UArg arg0, UArg arg1) {
                     clock_gettime(CLOCK_REALTIME, &ts);
                     packet.timestamp = ts.tv_sec;
                     if (log_lidar_samples) {
-                        cli_log("%.03f\n", packet.distance);
+                        System_printf("printf: %.03f\n", packet.distance);
+                        cli_log("cli_log: %.03f\n", packet.distance);
+                        System_flush();
                     }
                     store_sensor_data(&packet);
                     transmit_sensor_data(&packet);
@@ -280,6 +282,8 @@ static int read_lidar_distance(float *distance) {
         return LIDAR_READ_NODATA;
     }
 
+    System_printf("Before data is ready\n");
+    System_flush();
     do {
         writeData[0] = STATUS;
         garminTransaction.slaveAddress = garmin_ADDRESS;      // Where we send to
@@ -292,6 +296,8 @@ static int read_lidar_distance(float *distance) {
         }
     } while(readData[0] & 0x1 == 1);
 
+    System_printf("After data is ready\n");
+    System_flush();
     writeData[0] = 0x10;
     garminTransaction.slaveAddress = garmin_ADDRESS;      // Where we send to
     garminTransaction.writeBuf = writeData;                // What we send
@@ -304,10 +310,12 @@ static int read_lidar_distance(float *distance) {
 
     *distance = (readData[1] << 8) | readData[0];
 
+    /*
     if (*distance < LIDAR_THRESHOLD ||
         *distance > LIDAR_UPPER_THRESHOLD) {
             return LIDAR_READ_NOPACKET;
     }
+    */
 
     return LIDAR_SUCCESS;
 }

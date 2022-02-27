@@ -251,6 +251,9 @@ static void main_task(UArg arg0, UArg arg1) {
             __TIME__);
     // Set the clock
     request_rtc_update();
+    System_printf("system printf test\n");
+    System_flush();
+    // we did this time
     /*
      * Make semaphore to wait for clock to expire
      */
