@@ -285,9 +285,12 @@ void request_rtc_update() {
     if (!program_config.network_enabled || !transmission_init_done) {
         // Can't update rtc without network
         cli_log("Network not enabled, setting RTC directly");
-        System_printf("Cannot update RTC without network being enabled, using "
-                      "fallback timestamp");
+        System_printf("Cannot update RTC without network being enabled, using fallback timestamp\n");
+        //cli_log("Cannot update RTC without network being enabled, using fallback timestamp");
+        //cli_log("test if we get this far");
+        //System_printf("test if we get this far");
         System_flush();
+        //System_printf("test if we get this far");
         ts.tv_nsec = 0;
         ts.tv_sec = FALLBACK_TIMESTAMP;
         clock_settime(CLOCK_REALTIME, &ts);

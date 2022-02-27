@@ -74,6 +74,7 @@
  * These are the default values
  * If an SD card is inserted, the config.txt file can override them.
  */
+
 ProgramConfiguration program_config = {
     "HW_ID",       // Device hardware ID
     1,             // Device synthetic ID
@@ -87,7 +88,7 @@ ProgramConfiguration program_config = {
     55, // number of radar samples to take every time the interval fires
     0.0, // Distance to offset radar samples by (subtracts)
     15000,                                      // lidar sample interval in ms
-    55,                                         // number of lidar samples to take every time the interval fires
+    2,                                         // number of lidar samples to take every time the interval fires
     0.0                                         // Distance to offset lidar samples by (subtracts)
 };
 // Watchdog handle implemenation, used across code for watchdog timer
@@ -210,8 +211,6 @@ static void main_task(UArg arg0, UArg arg1) {
     /*
      * Start all required tasks
      */
-    // Eventually need one for lidar
-    /*
     if (program_config.lidar_module_enabled) {
         Task_Params_init(&taskParams);
         taskParams.stackSize = LIDAR_TASK_STACK_MEM;
@@ -220,7 +219,7 @@ static void main_task(UArg arg0, UArg arg1) {
             System_abort("Sensor task creation failed\n");
         }
     }
-    */
+
     Task_Params_init(&taskParams);
     taskParams.stackSize = TRANSMISSION_TASK_STACK_MEM;
     taskParams.priority = TRANSMISSION_TASK_PRIORITY;
@@ -252,6 +251,9 @@ static void main_task(UArg arg0, UArg arg1) {
             __TIME__);
     // Set the clock
     request_rtc_update();
+    System_printf("system printf test\n");
+    System_flush();
+    // we did this time
     /*
      * Make semaphore to wait for clock to expire
      */
@@ -264,37 +266,33 @@ static void main_task(UArg arg0, UArg arg1) {
      * to sample data from the radar board and update the network clock
      */
     Clock_Params_init(&clockParams);
-    clockParams.period = program_config.radar_sample_interval;
+    clockParams.period = program_config.lidar_sample_interval;
     clockParams.startFlag = true;
-    clock = Clock_create(clock_handle, program_config.radar_sample_interval,
+    clock = Clock_create(clock_handle, program_config.lidar_sample_interval,
                          &clockParams, NULL);
     if (!clock) {
         System_abort("Could not create main task clock\n");
     }
-    /*
-    while (1) {
 
+    while (1) {
+        /*
          * Main program run loop. Sample data from the radar board, and
          * periodically update the clock.
+         */
 
-        // Get a sample from the radar board.
-         *
-        // sample_lidar();
-        sample_radar();
-        // Delay until radar sample interval expires.
+        // Get a sample from the lidar, sending an LIDAR_EVT_SAMPLE to lidar_run
+        sample_lidar();
+
+        // Delay until lidar sample interval expires.
         Semaphore_pend(mainTaskSem, BIOS_WAIT_FOREVER);
         // Add sample interval to our counter for the clock update
-        clockupdate_interal += program_config.radar_sample_interval;
+        clockupdate_interal += program_config.lidar_sample_interval;
         if (clockupdate_interal >= NETWORK_TIME_DELAY) {
             clockupdate_interal = 0;
             request_rtc_update();
         }
         // Force log files to flush to disk
         sync_to_disk();
-    }
-    */
-    for(;;) {
-
     }
 }
 
