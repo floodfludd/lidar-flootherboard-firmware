@@ -173,13 +173,13 @@ void lidar_run(UArg arg0, UArg arg1) {
      * 5. Power down the board
      */
     while (1) {
-        if (program_config.lidar_sample_offset == 0.0) {
+        //if (program_config.lidar_sample_offset == 0.0) {
             // Where calibration code would go
             // Don't want to include it yet so as to make things simpler
-        } else {
+        //} else {
             events = Event_pend(lidarEventHandle, Event_Id_NONE,
                                 EVT_LIDAR_SAMPLE, BIOS_WAIT_FOREVER);
-        }
+        //}
         // Only run if one of the events that were called was EVT_LIDAR_SAMPLE from sample_lidar in main
         if (events & EVT_LIDAR_SAMPLE) {
             // For now, let's assume lidar is always on
