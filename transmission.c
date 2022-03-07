@@ -97,10 +97,14 @@ void transmission_init() {
     if (!SIM7000_open(&sim_config)) {
         System_abort("Could not open SIM UART\n");
     }
+    //if (!SIM7000_open(&sim_config)) {
+        //System_abort("Could not open SIM UART\n");
+    //}
     // Also configure D2 indicator LED as low output
     GPIO_setConfig(CONFIG_D2_LED, GPIO_CFG_OUTPUT | GPIO_CFG_OUT_LOW);
     transmission_init_done = true;
     System_printf("Transmission init done\n");
+    System_flush();
 }
 
 /**

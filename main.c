@@ -77,10 +77,10 @@
 ProgramConfiguration program_config = {
     "HW_ID",       // Device hardware ID
     1,             // Device synthetic ID
-    true,           // Lidar module enabled?
+    false,           // Lidar module enabled?
     false,          // Radar module enabled?
     false,          // Camera module enabled?
-    false,         // network module enabled?
+    true,         // network module enabled?
     "3.21.41.182", // remote server for network module to talk to
     "f94ed0427c1d5d54b4308fe8c1aa7e03703d4bbd", // Auth token for server
     15000,                                      // radar sample interval in ms

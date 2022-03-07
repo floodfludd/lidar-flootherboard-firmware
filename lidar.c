@@ -152,11 +152,136 @@ void lidar_init() {
     }
 
     GPIO_write(CONFIG_D1_LED, 1);
+
+    // Wait for lidar to properly boot after 22ms
+    // Giving it 25 just to be safe
+    Task_sleep(25);
+
+    turn_on(0x14);
+    //GPIO_write(CONFIG_D1_LED, 1);
     System_printf("sensor init done\n");
 
 }
 
+<<<<<<< Updated upstream
 static int read_radar_distance(float *distance) {
+=======
+void lidar_run(UArg arg0, UArg arg1) {
+    int num_samples;
+    UInt events;
+    float num_samples_avg;
+    float sum;
+    SensorDataPacket packet;
+    System_printf("sensor task starting\n");
+    Watchdog_clear(watchdogHandle);
+    cli_log("Lidar task starting with distance offset of %.2f\n",
+            program_config.lidar_sample_offset);
+    /*
+     * Run Loop.
+     * 1. Wait for a sample to be requested
+     * 2. Boot the radar board
+     * 3. Configure the board
+     * 4. Take a defined number of samples
+     * 5. Power down the board
+     */
+    while (1) {
+        //if (program_config.lidar_sample_offset == 0.0) {
+            // Where calibration code would go
+            // Don't want to include it yet so as to make things simpler
+        //} else {
+            events = Event_pend(lidarEventHandle, Event_Id_NONE,
+                                EVT_LIDAR_SAMPLE, BIOS_WAIT_FOREVER);
+        //}
+        // Only run if one of the events that were called was EVT_LIDAR_SAMPLE from sample_lidar in main
+        if (events & EVT_LIDAR_SAMPLE) {
+            // For now, let's assume lidar is always on
+            // boot_lidar would usually be something like switching from ALWAYS_ON for high accuracy mode to ASYNCHRONOUS_MODE to preserve power
+            //boot_lidar();
+
+            /*
+             // We don't need to wait for lidar to boot, since it is always on
+            if (wait_boot() < 0) {
+                System_printf("lidar did not boot\n");
+                System_flush();
+                Watchdog_clear(watchdogHandle);
+                cli_log("Timed out waiting for radar boot\n");
+                powerdown_lidar();
+                continue; // Do not run rest of loop
+            }
+             // Don't need to configure lidar, assuming it is ALWAYS_ON
+            if (configure_radar() < 0) {
+                System_printf("Failed to configure radar module\n");
+                System_flush();
+                cli_log("Failed to configure radar module\n");
+                powerdown_radar();
+                continue; // Do not run rest of loop
+            }
+
+            // Wait for lidar board to produce data.
+            // We also don't need since it waits for a magic number header to be produced before actually reading
+            if (wait_packet() < 0) {
+                System_printf("Did not get data from radar board\n");
+                Watchdog_clear(watchdogHandle);
+                System_flush();
+                cli_log("Radar board is not producing data\n");
+                powerdown_radar();
+                continue; // Do not run rest of loop
+            }
+            */
+            struct timespec ts;
+            float distance;
+            num_samples = program_config.lidar_sample_count;
+            num_samples_avg = 0;
+            sum = 0;
+            while (num_samples--) {
+                Task_sleep(LIDAR_SAMPLE_DELAY);
+                num_samples_avg = num_samples_avg + 1.0;
+                if (read_lidar_distance(&distance) != LIDAR_SUCCESS) {
+                    Watchdog_clear(watchdogHandle);
+                    System_printf("Failed to get sample from lidar board\n");
+                    System_flush();
+                    cli_log("Did not get sample from lidar board\n");
+                    break; // Exit loop
+                }
+                sum = sum + distance;
+            }
+            if (sum != 0 && num_samples_avg > LIDAR_MIN_SAMPLES) {
+                //if (program_config.lidar_sample_offset == 0.0) {
+                    // This would also be used for calibrating the lidar sample offset
+                    // Not gonna worry about this for now
+                //} else {
+                    // Send and store radar data
+                    packet.distance = sum / num_samples_avg;
+
+                    // We won't be using this for now, since it appears to get the delta of change of water
+                    // subtract distance from offset
+                    //packet.distance = program_config.lidar_sample_offset - packet.distance;
+                    // If a negative value was read, just zero it out (currently
+                    // disabled) if (packet.distance < 0) packet.distance = 0;
+                    clock_gettime(CLOCK_REALTIME, &ts);
+                    packet.timestamp = ts.tv_sec;
+                    if (log_lidar_samples) {
+                        System_printf("printf: %.03f\n", packet.distance);
+                        cli_log("cli_log: %.03f\n", packet.distance);
+                        System_flush();
+                    }
+                    store_sensor_data(&packet);
+                    transmit_sensor_data(&packet);
+                //}
+            }
+            // Assume lidar is always on for now
+            //powerdown_lidar();
+        }
+    }
+}
+
+void sample_lidar(void) {
+    if (!program_config.lidar_module_enabled) {
+        return;
+    }
+    Event_post(lidarEventHandle, EVT_LIDAR_SAMPLE);
+}
+>>>>>>> Stashed changes
 
     int read_packet;
     int read_count;

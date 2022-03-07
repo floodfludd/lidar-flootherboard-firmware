@@ -66,11 +66,13 @@
 #define SIM7000_TIMEOUT 1000   /**< number of ms to wait for sim to send data */
 #define UART_READ_TIMEOUT 1000 /**< number of ms to wait for UART data */
 /** number of ms to pulse PWR pin for to boot SIM */
-#define SIM7000_PWRPULSE 200
+//#define SIM7000_PWRPULSE 200
+#define SIM7000_PWRPULSE 1000
 /** number of ms to wait for sim to turn off */
 #define SIM7000_POWERDOWN_DELAY 1700
 /** Highest stable baudrate, 115200 may work with better signal integrity */
-#define SIM7000_BAUDRATE 9600
+//#define SIM7000_BAUDRATE 9600
+#define SIM7000_BAUDRATE 115200
 /** number of times to "ping" SIM with AT command */
 #define SIM7000_BOOT_ATTEMPTS 2
 
@@ -714,7 +716,8 @@ static void boot_sim7000a(SIM7000_Config *config) {
     GPIO_setConfig(config->powerkey_pin, GPIO_CFG_OUTPUT | GPIO_CFG_OUT_HIGH);
     GPIO_setConfig(config->reset_pin, GPIO_CFG_OUTPUT | GPIO_CFG_OUT_HIGH);
     // Now, write a low value to the GPIO pin
-    delay_ms(50); // delay 50 ms so sim sees high pin
+    //delay_ms(50); // delay 50 ms so sim sees high pin
+    delay_ms(100);
     GPIO_write(config->powerkey_pin, GPIO_LOW);
     delay_ms(SIM7000_PWRPULSE);
     GPIO_write(config->powerkey_pin, GPIO_HIGH);
@@ -795,7 +798,10 @@ static uint8_t sim_readline(SIM7000_Config *config, int timeout) {
     while (timeout > 0 && !complete) {
         // while the SIM module has data, read it
         Watchdog_clear(watchdogHandle);
-        while (UART_read(config->uart, &c, 1) == 1) {
+        bool storage = UART_read(config->uart, &c, 1);
+        System_printf("%d\n", storage);
+        System_flush();
+        while (storage) {
             if (c == '\r')
                 continue; // Ignore carriage return
             if (c == '\n' && replyidx == 0) {
@@ -837,6 +843,14 @@ static uint8_t sim_readline(SIM7000_Config *config, int timeout) {
  * @return true if the SIM7000 booted and is responding to commands
  */
 static bool verify_boot(SIM7000_Config *config) {
+    //return true;
+
+    //send_verified_reply(config, "AT+IPR=9600", OK_REPLY, timeout)
+    //get_reply(config, "AT+IPR=9600", SIM7000_TIMEOUT);
+    flush_input(config);
+    reconfigure_baud(config, 9600);
+
+    //return true;
     int expected_outputs = 3, num_read, attempts = 6;
     /*
      * During boot the SIM sends several unprompted outputs. The only ones that
